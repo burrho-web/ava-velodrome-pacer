@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ava-velodrome-pacer-v4';
+const CACHE_NAME = 'ava-velodrome-pacer-v6';
 const APP_SHELL = [
   './',
   './index.html',

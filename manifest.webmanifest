@@ -1,7 +1,7 @@
 {
   "name": "AVA Velodrome Pacer",
   "short_name": "AVA Pacer",
-  "description": "Velodrome lap pacer with track-line speed calculation and selectable lap sounds.",
+  "description": "Velodrome lap pacer with set-by-time or set-by-speed controls, track-line calculation, selectable lap sounds, and an offline lap-time vs speed chart.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

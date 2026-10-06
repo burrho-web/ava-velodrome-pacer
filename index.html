@@ -17,30 +17,41 @@
     label{font-size:14px}
     input,select,button{box-sizing:border-box;width:100%;font-size:20px;padding:14px;border-radius:12px;border:1px solid #4b5563;background:#1f2937;color:white}
     button{font-weight:700}
-    .adjust{display:grid;grid-template-columns:70px 1fr 70px;gap:8px}
+    .setup{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+    .adjust{display:grid;grid-template-columns:82px 1fr 82px;gap:8px}
+    .primary-wrap{position:relative}
+    .primary-wrap input{padding-right:72px;text-align:center;font-weight:800}
+    .unit{position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:15px;font-weight:800;pointer-events:none}
     .display{text-align:center;padding:28px 10px}
     .status{letter-spacing:.18em;color:#9ca3af;font-weight:700}
     .clock{font:900 clamp(72px,24vw,150px)/1 monospace;margin:15px 0}
     .speed{font-size:clamp(38px,12vw,68px);font-weight:900;margin:8px 0 18px}
     .speed small{font-size:.42em;font-weight:800}
-    .speedlabel{font-size:14px;letter-spacing:.14em;color:#9ca3af;font-weight:700;margin-top:-12px;margin-bottom:18px}
+    .speedlabel{font-size:14px;letter-spacing:.12em;color:#9ca3af;font-weight:700;margin-top:-12px;margin-bottom:18px}
     .lap{font-size:28px}
     .start{background:#2563eb}
     .note{color:#cbd5e1;font-size:14px;margin-top:16px}
-    @media(max-width:420px){.controls{grid-template-columns:1fr}.buttons button{font-size:17px}}
+    .mode-note{font-size:13px;color:#9ca3af;text-align:center;margin:8px 0 0}
+    .chart-panel{margin-top:20px;border:1px solid #374151;border-radius:14px;background:#1f2937;overflow:hidden}
+    .chart-panel summary{cursor:pointer;padding:14px 16px;font-weight:800;font-size:18px;list-style:none}
+    .chart-panel summary::-webkit-details-marker{display:none}
+    .chart-wrap{padding:4px 10px 14px;overflow-x:auto}
+    #paceChart{display:block;width:100%;min-width:560px;height:auto}
+    .chart-note{font-size:12px;color:#cbd5e1;text-align:center;margin:4px 10px 12px}
+    @media(max-width:420px){.controls,.setup{grid-template-columns:1fr}.buttons button{font-size:17px}.adjust{grid-template-columns:74px 1fr 74px}}
   </style>
 </head>
 <body>
   <main class="app">
     <h1>AVA Velodrome Pacer</h1>
 
-    <div class="adjust">
-      <button id="minus">−0.1</button>
-      <input id="lapTime" type="number" min="0.1" step="0.1" value="16.5" inputmode="decimal">
-      <button id="plus">+0.1</button>
-    </div>
-
-    <div class="controls" style="margin-top:12px">
+    <div class="setup">
+      <label>Set by
+        <select id="setMode">
+          <option value="time" selected>Lap Time</option>
+          <option value="speed">Speed</option>
+        </select>
+      </label>
       <label>Track line
         <select id="trackLine">
           <option value="250">Black line — 250 m</option>
@@ -48,6 +59,19 @@
           <option value="285">Top of track — 285 m</option>
         </select>
       </label>
+    </div>
+
+    <div class="adjust">
+      <button id="minus">−0.1</button>
+      <div class="primary-wrap">
+        <input id="primaryValue" type="number" min="0.1" step="0.1" value="16.5" inputmode="decimal" aria-label="Target lap time">
+        <span class="unit" id="primaryUnit">sec</span>
+      </div>
+      <button id="plus">+0.1</button>
+    </div>
+    <div class="mode-note" id="modeNote">Set your target lap time. Speed is calculated automatically.</div>
+
+    <div class="controls" style="margin-top:12px">
       <label>Total laps
         <input id="laps" type="number" min="1" value="20">
       </label>
@@ -83,7 +107,7 @@
       <div class="speed"><span id="speed">54.5</span> <small>km/h</small></div>
       <div class="speedlabel" id="speedLabel">BLACK LINE — 250 m TARGET SPEED</div>
       <div class="lap">LAP <b id="current">0</b> / <b id="total">20</b></div>
-      <div style="margin-top:8px">TARGET <b id="target">16.5</b> s</div>
+      <div style="margin-top:8px">TARGET <b id="target">16.5</b> s/lap</div>
     </section>
 
     <div class="buttons">
@@ -93,12 +117,23 @@
       <button id="test">🔊 TEST SOUND</button>
     </div>
 
-    <p class="note">For velodrome use, set your phone and Bluetooth/PA speaker media volume to maximum. Choose a sound above and use TEST SOUND before the session. Keep the screen awake while timing.</p>
+    <details class="chart-panel" open>
+      <summary>Lap Time vs Speed Chart (15-40 s)</summary>
+      <div class="chart-wrap">
+        <svg id="paceChart" viewBox="0 0 680 330" role="img" aria-label="Velodrome lap time versus speed chart for black, blue and top track lines"></svg>
+      </div>
+      <div class="chart-note">Black 250 m | Blue 267.5 m | Top 285 m. The target dot follows your current setting.</div>
+    </details>
+
+    <p class="note">Set by lap time or target speed. The app automatically converts between seconds per lap and km/h using the selected track line. For maximum sound, turn up the phone and Bluetooth/PA speaker media volume and test the sound before the session.</p>
   </main>
 
   <script>
     const $ = x => document.getElementById(x);
-    const lt = $('lapTime');
+    const setMode = $('setMode');
+    const primary = $('primaryValue');
+    const primaryUnit = $('primaryUnit');
+    const modeNote = $('modeNote');
     const laps = $('laps');
     const line = $('trackLine');
     const clock = $('clock');
@@ -110,8 +145,12 @@
     const speedLabel = $('speedLabel');
     const soundType = $('soundType');
     const soundVolume = $('soundVolume');
+    const minus = $('minus');
+    const plus = $('plus');
 
     let ac, running = false, paused = false, startAt = 0, pauseElapsed = 0, lastLap = 0, raf, ctimer;
+    let targetTime = 16.5;
+    let targetSpeed = 250 / targetTime * 3.6;
 
     const lineNames = {
       '250': 'BLACK LINE',
@@ -119,22 +158,118 @@
       '285': 'TOP OF TRACK'
     };
 
+
+    const chartSvg = $('paceChart');
+    const chartLines = [
+      {d:250, name:'Black 250 m', stroke:'#f3f4f6', dash:'0'},
+      {d:267.5, name:'Blue 267.5 m', stroke:'#60a5fa', dash:'0'},
+      {d:285, name:'Top 285 m', stroke:'#f59e0b', dash:'0'}
+    ];
+
+    function drawChart(){
+      if(!chartSvg) return;
+      const W=680,H=330,L=58,R=20,T=24,B=48;
+      const xmin=15,xmax=40,ymin=20,ymax=70;
+      const x=t=>L+(t-xmin)/(xmax-xmin)*(W-L-R);
+      const y=v=>T+(ymax-v)/(ymax-ymin)*(H-T-B);
+      let out='';
+      out += `<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" rx="8" fill="#111827" stroke="#4b5563"/>`;
+      for(let v=20;v<=70;v+=10){
+        const yy=y(v); out += `<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#374151" stroke-width="1"/>`;
+        out += `<text x="${L-10}" y="${yy+4}" text-anchor="end" fill="#cbd5e1" font-size="12">${v}</text>`;
+      }
+      for(let t=15;t<=40;t+=5){
+        const xx=x(t); out += `<line x1="${xx}" y1="${T}" x2="${xx}" y2="${H-B}" stroke="#374151" stroke-width="1"/>`;
+        out += `<text x="${xx}" y="${H-B+20}" text-anchor="middle" fill="#cbd5e1" font-size="12">${t}</text>`;
+      }
+      out += `<text x="${(L+W-R)/2}" y="${H-9}" text-anchor="middle" fill="#cbd5e1" font-size="13">Lap time (seconds)</text>`;
+      out += `<text x="16" y="${(T+H-B)/2}" text-anchor="middle" transform="rotate(-90 16 ${(T+H-B)/2})" fill="#cbd5e1" font-size="13">Speed (km/h)</text>`;
+      chartLines.forEach((ln,idx)=>{
+        let pts=[];
+        for(let t=15;t<=40.001;t+=0.25){ pts.push(`${x(t).toFixed(1)},${y(ln.d*3.6/t).toFixed(1)}`); }
+        out += `<polyline points="${pts.join(' ')}" fill="none" stroke="${ln.stroke}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+        const lx=455+idx*0, ly=18+idx*0;
+      });
+      const legendY=18;
+      const legendX=[110,300,480];
+      chartLines.forEach((ln,i)=>{
+        out += `<line x1="${legendX[i]}" y1="${legendY}" x2="${legendX[i]+28}" y2="${legendY}" stroke="${ln.stroke}" stroke-width="4"/>`;
+        out += `<text x="${legendX[i]+35}" y="${legendY+4}" fill="#e5e7eb" font-size="12">${ln.name}</text>`;
+      });
+      const c=cfg();
+      if(c.t>=xmin && c.t<=xmax && c.v>=ymin && c.v<=ymax){
+        const xx=x(c.t), yy=y(c.v);
+        out += `<circle cx="${xx}" cy="${yy}" r="7" fill="#ef4444" stroke="#fff" stroke-width="2"/>`;
+        const tx=Math.min(W-R-118, Math.max(L+8, xx+10));
+        const ty=Math.max(T+16, yy-10);
+        out += `<rect x="${tx-4}" y="${ty-14}" width="112" height="24" rx="5" fill="#111827" stroke="#6b7280"/>`;
+        out += `<text x="${tx+52}" y="${ty+3}" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">${c.t.toFixed(1)} s | ${c.v.toFixed(1)} km/h</text>`;
+      }
+      chartSvg.innerHTML=out;
+    }
+
+    function distance(){ return Math.max(.1, +line.value || 250); }
+    function speedFromTime(t, d = distance()){ return d * 3.6 / Math.max(.1, t); }
+    function timeFromSpeed(v, d = distance()){ return d * 3.6 / Math.max(.1, v); }
+
     function cfg(){
       return {
-        t: Math.max(.1, +lt.value || 16.5),
+        t: Math.max(.1, targetTime),
+        v: Math.max(.1, targetSpeed),
         n: Math.max(1, Math.round(+laps.value || 20)),
-        d: Math.max(.1, +line.value || 250)
+        d: distance()
       };
     }
 
-    function sync(){
-      let c = cfg();
-      lt.value = c.t.toFixed(1);
+    function refreshPrimary(){
+      if(setMode.value === 'time'){
+        primary.value = targetTime.toFixed(1);
+        primary.step = '0.1';
+        primary.min = '0.1';
+        primaryUnit.textContent = 'sec';
+        primary.setAttribute('aria-label','Target lap time');
+        minus.textContent = '−0.1';
+        plus.textContent = '+0.1';
+        modeNote.textContent = 'Set your target lap time. Speed is calculated automatically.';
+      } else {
+        primary.value = targetSpeed.toFixed(1);
+        primary.step = '0.5';
+        primary.min = '0.1';
+        primaryUnit.textContent = 'km/h';
+        primary.setAttribute('aria-label','Target speed');
+        minus.textContent = '−0.5';
+        plus.textContent = '+0.5';
+        modeNote.textContent = 'Set your target speed. Lap time is calculated automatically.';
+      }
+    }
+
+    function syncDisplay(){
+      const c = cfg();
       total.textContent = c.n;
       target.textContent = c.t.toFixed(1);
-      speed.textContent = (c.d / c.t * 3.6).toFixed(1);
+      speed.textContent = c.v.toFixed(1);
       speedLabel.textContent = `${lineNames[String(c.d)] || 'TRACK'} — ${c.d} m TARGET SPEED`;
       if(!running && !paused) clock.textContent = c.t.toFixed(1);
+      drawChart();
+    }
+
+    function applyPrimary(){
+      const value = Math.max(.1, +primary.value || (setMode.value === 'time' ? targetTime : targetSpeed));
+      if(setMode.value === 'time'){
+        targetTime = value;
+        targetSpeed = speedFromTime(targetTime);
+      } else {
+        targetSpeed = value;
+        targetTime = timeFromSpeed(targetSpeed);
+      }
+      refreshPrimary();
+      syncDisplay();
+    }
+
+    function changePrimary(delta){
+      const base = Math.max(.1, +primary.value || (setMode.value === 'time' ? targetTime : targetSpeed));
+      primary.value = Math.max(.1, base + delta).toFixed(1);
+      applyPrimary();
     }
 
     function audio(){
@@ -160,8 +295,6 @@
     }
 
     function soundPreset(kind = soundType.value, volume = +soundVolume.value || 0.85){
-      // Web browsers cannot exceed the phone/speaker's hardware volume.
-      // These presets use strong, attention-grabbing frequencies for better audibility.
       switch(kind){
         case 'whistle':
           tone(2200, .48, volume, 'square');
@@ -189,7 +322,6 @@
     }
 
     function beep(f = 1000, d = .35){
-      // Preserve special start/countdown tones; use the chosen sound for lap beeps.
       if(f === 1000 && Math.abs(d - .35) < .001){
         soundPreset();
       } else {
@@ -199,7 +331,10 @@
 
     function frame(){
       if(!running) return;
-      let c = cfg(), e = (performance.now() - startAt) / 1000, done = Math.floor(e / c.t), within = e - done * c.t;
+      const c = cfg();
+      const e = (performance.now() - startAt) / 1000;
+      const done = Math.floor(e / c.t);
+      const within = e - done * c.t;
       if(done > lastLap){
         for(let i = lastLap; i < Math.min(done, c.n); i++) beep();
         lastLap = done;
@@ -217,7 +352,7 @@
     }
 
     function begin(){
-      sync();
+      applyPrimary();
       lastLap = 0;
       cur.textContent = 0;
       startAt = performance.now();
@@ -274,17 +409,37 @@
       cancelAnimationFrame(raf);
       cur.textContent = 0;
       status.textContent = 'READY';
-      sync();
+      refreshPrimary();
+      syncDisplay();
     };
 
     $('test').onclick = () => soundPreset();
-    $('minus').onclick = () => { lt.value = Math.max(.1, cfg().t - .1).toFixed(1); sync(); };
-    $('plus').onclick = () => { lt.value = (cfg().t + .1).toFixed(1); sync(); };
-    lt.onchange = laps.onchange = line.onchange = sync;
+    minus.onclick = () => changePrimary(setMode.value === 'time' ? -0.1 : -0.5);
+    plus.onclick = () => changePrimary(setMode.value === 'time' ? 0.1 : 0.5);
+    primary.onchange = applyPrimary;
+    primary.oninput = () => { if(primary.value !== '') applyPrimary(); };
+    laps.onchange = syncDisplay;
+
+    setMode.onchange = () => {
+      refreshPrimary();
+      syncDisplay();
+    };
+
+    line.onchange = () => {
+      if(setMode.value === 'time'){
+        targetSpeed = speedFromTime(targetTime);
+      } else {
+        targetTime = timeFromSpeed(targetSpeed);
+      }
+      refreshPrimary();
+      syncDisplay();
+    };
+
     soundType.onchange = () => soundPreset();
     soundVolume.onchange = () => soundPreset();
 
-    sync();
+    refreshPrimary();
+    syncDisplay();
     if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </script>
 </body>

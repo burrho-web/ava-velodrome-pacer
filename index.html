@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ff2c88"><title>AVA Velodrome Pacer — Stable v3</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ff2c88"><title>AVA Velodrome Pacer — Stable v5</title>
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#40102d;background:#fff0f7}*{box-sizing:border-box}body{margin:0}main{max-width:950px;margin:auto;padding:18px}header{background:linear-gradient(110deg,#ff2c88,#ff85b6);color:white;padding:22px;border-radius:20px;margin-bottom:16px}h1{margin:0;font-size:32px}header small{letter-spacing:2px}.logo{font-size:48px;font-weight:950;letter-spacing:-5px;font-style:italic}.panel{background:#fff;border:1px solid #ffd1e4;border-radius:17px;padding:17px;margin:12px 0;box-shadow:0 4px 16px #ec3c8520}.layout{display:grid;grid-template-columns:1fr 1fr;gap:14px}.controls{display:flex;gap:8px;flex-wrap:wrap}button{cursor:pointer;border:1px solid #f9a7c8;border-radius:10px;padding:11px 14px;font-weight:700;background:#ffe2ef;color:#781641}button.active,button.primary{background:#f72585;color:white;border-color:#f72585}button:disabled{opacity:.45;cursor:default}input,select,textarea{font:inherit;min-width:0;border:1px solid #efaac9;border-radius:9px;padding:9px;background:#fff;color:#40102d}input[type=number]{width:100%}input[type=range]{width:100%;accent-color:#f72585}.stage{display:grid;grid-template-columns:30px 1fr 1fr 36px;gap:8px;align-items:end;margin:11px 0}.stage label{font-size:12px}.stage label input{display:block;margin-top:4px}.timer{text-align:center;background:linear-gradient(#fff,#ffe7f1);border:8px solid #ffb5d3;border-radius:22px;padding:22px}.clock{font-size:clamp(65px,12vw,110px);font-weight:850;font-variant-numeric:tabular-nums;line-height:1.2}.progress{height:13px;border-radius:10px;background:#ffd6e7;overflow:hidden}.progress>div{height:100%;width:0;background:#f72585}.speeds{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.speed{text-align:center;color:white;border-radius:12px;padding:10px 4px;font-size:12px}.speed strong{font-size:clamp(17px,3vw,25px);display:block}.black{background:#28212a}.red{background:#d61937}.blue{background:#1765d8}.top{background:#bf8500}.muted{color:#91677d;font-size:12px}.space{display:flex;justify-content:space-between;align-items:center;gap:8px}.hidden{display:none!important}@media(max-width:700px){.layout{grid-template-columns:1fr}main{padding:10px}.stage{grid-template-columns:20px 1fr 1fr 33px}.speeds{gap:4px}.speed{padding:8px 2px}}
 </style></head><body><main>
@@ -13,7 +13,7 @@
 <div class="panel"><h3>Sound Settings</h3><label><input id="sound" type="checkbox" checked> Lap Sound</label><p><label>Sound Type <select id="soundType"><option value="beep">Beep</option><option value="double">Double Beep</option><option value="triple">Triple Beep</option><option value="whistle">Whistle</option><option value="bell">Bell</option><option value="high">High Pitch</option></select></label></p><div class="space"><label for="volume">Volume</label><b id="volumeLabel">80%</b></div><input id="volume" type="range" min="0" max="100" value="80"><p><label><input id="loudMode" type="checkbox" checked> Extra Loud Mode</label></p><p><label><input id="stageSound" type="checkbox" checked> Special sound on stage change</label></p><button id="test" style="width:100%">🔊 Test Sound</button>
 <div style="border-top:1px solid #ffd1e4;margin-top:18px;padding-top:12px"><h3>Voice Announcement</h3>
 <label>When to Speak <select id="voiceMode" style="width:100%;margin-top:6px"><option value="off">Off</option><option value="lap">Every Lap</option><option value="stage">Stage Change Only</option><option value="both" selected>Every Lap + Stage Change</option></select></label>
-<p><label>Voice Language <select id="voiceLang"><option value="en-US">English</option><option value="zh-HK">中文 (Cantonese if available)</option></select></label></p>
+<p><label>Voice Language <select id="voiceLang"><option value="en-US">American English (US)</option><option value="en-GB">British English (UK)</option><option value="fr-CA">French (Canada)</option><option value="fr-FR">French (France)</option><option value="zh-HK">Cantonese (Hong Kong)</option></select></label></p>
 <div class="space"><label for="voiceVolume">Voice Volume</label><b id="voiceVolumeLabel">100%</b></div><input id="voiceVolume" type="range" min="0" max="100" value="100">
 <div class="space"><label for="voiceRate">Voice Speed</label><b id="voiceRateLabel">1.0×</b></div><input id="voiceRate" type="range" min="0.6" max="1.5" step="0.1" value="1">
 <button id="voiceTest" style="width:100%">🗣 Test Voice</button><p class="muted">Uses your device's built-in voice. Voice volume and language availability depend on your device.</p></div></div></section></div>
@@ -48,11 +48,22 @@ function speak(stageChange=false, preview=false){
  const targetIndex=finished?stages.length-1:idx;
  const next=stages[targetIndex];
  const seconds=goal(next).toFixed(1);
- const cantonese=$('voiceLang').value==='zh-HK';
+ const accent=$('voiceLang').value;
  let phrase;
- if(finished)phrase=cantonese?'訓練完成':'Workout complete';
- else if(stageChange)phrase=cantonese?`第 ${idx+1} 階段，每圈 ${seconds} 秒`:`Stage ${idx+1}. ${seconds} seconds per lap`;
- else phrase=cantonese?`第 ${done()+1} 圈，${seconds} 秒`:`Lap ${done()+1}. ${seconds} seconds`;
+ if(accent.startsWith('fr')){
+  const n=Number(seconds).toLocaleString(accent,{maximumFractionDigits:1});
+  if(finished)phrase='Entraînement terminé';
+  else if(stageChange)phrase=`Étape ${idx+1}. ${n} secondes par tour`;
+  else phrase=`Tour ${done()+1}. ${n} secondes`;
+ }else if(accent==='zh-HK'){
+  if(finished)phrase='訓練完成';
+  else if(stageChange)phrase=`第${idx+1}階段，每圈${seconds}秒`;
+  else phrase=`第${done()+1}圈，${seconds}秒`;
+ }else{
+  if(finished)phrase='Workout complete';
+  else if(stageChange)phrase=`Stage ${idx+1}. ${seconds} seconds per lap`;
+  else phrase=`Lap ${done()+1}. ${seconds} seconds`;
+ }
  try{
   if(!preview && window.speechSynthesis.speaking)window.speechSynthesis.cancel();
   const utterance=new SpeechSynthesisUtterance(phrase);
@@ -60,8 +71,11 @@ function speak(stageChange=false, preview=false){
   utterance.volume=Number($('voiceVolume').value)/100;
   utterance.rate=Number($('voiceRate').value);
   const voices=window.speechSynthesis.getVoices();
-  const match=voices.find(v=>v.lang.toLowerCase()===$('voiceLang').value.toLowerCase())||voices.find(v=>v.lang.toLowerCase().startsWith(cantonese?'zh':'en'));
+  const sameLanguage=voices.filter(v=>v.lang.toLowerCase().startsWith(accent.slice(0,2).toLowerCase()));
+  const preferred=sameLanguage.filter(v=>v.lang.toLowerCase()===accent.toLowerCase());
+  const match=preferred.find(v=>/natural|premium|enhanced/i.test(v.name))||preferred[0]||sameLanguage.find(v=>/natural|premium|enhanced/i.test(v.name))||sameLanguage[0];
   if(match)utterance.voice=match;
+  else if(accent==='zh-HK'){$('message').textContent='Cantonese voice may not be installed on this device.';}
   window.speechSynthesis.speak(utterance);
  }catch(e){$('message').textContent='Voice playback unavailable.'}
 }
